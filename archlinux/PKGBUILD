@@ -15,7 +15,7 @@ optdepends=('noctalia-shell: optional monitor picker')
 _tag=v${pkgver}
 
 source=("${pkgbase}-${pkgver}.tar.gz::${url}/archive/refs/tags/${_tag}.tar.gz")
-b2sums=('9f1b9c160e2e0525d2f2e4f0cb2d751c83e2480c26d6b547eb186bba2e6e962adfe67e8f84bcd363830651399e339b4d359002387dce50129e0432acdc158be2')
+b2sums=('d6cf2924c72946ae11fd18e180fd4065aabb7589d84923f2887bb04809abe92f0890521b2cbe37945d8729b0e44104fb72fbb3e152730ad1b86425560fc49b23')
 
 build() {
 	cd "$srcdir/$pkgbase"
