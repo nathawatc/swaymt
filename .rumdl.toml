@@ -1,0 +1,6 @@
+[global]
+extend-enable = ["MD060", "MD063"]
+respect-gitignore = true
+
+[MD013]
+line-length = 100

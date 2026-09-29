@@ -1,104 +1,75 @@
-# swaymt
+# Sway Monitor Toggle
 
-A small native Zig monitor switcher for Sway, inspired by Windows + P.
-It talks directly to Sway and Noctalia over Unix sockets: no shell scripts,
-child processes, `swaymsg`, or `noctalia dmenu` invocation.
+Switch between internal, external, and extended displays in Sway, or choose a
+mode from a Noctalia picker.
 
-## Requirements and build
+## Requirements
 
-- Linux and Zig 0.16.0.
-- Sway, with `SWAYSOCK` exported in the calling environment.
-- Noctalia with its dmenu socket available, for the optional picker.
+- Linux and Sway.
+- Noctalia for the optional display picker.
+- Zig 0.16.x to build from source.
+
+## Build from Source
 
 ```sh
-zig build
 zig build -Doptimize=ReleaseFast
-zig build test
 ```
 
-The executable is `zig-out/bin/swaymt`. There are no third-party dependencies.
-BrightStay is excluded by default. Debug is the default optimization mode;
-`ReleaseSmall` is also available when binary size matters most.
+The executable is `zig-out/bin/swaymt`. For a debug build, use `zig build`.
+BrightStay support is not included by default.
 
 ## Usage
+
+Replace these connector names with your own:
 
 ```sh
 swaymt -i eDP-1 -e HDMI-A-1
 swaymt -i eDP-1 -e HDMI-A-1 internal
 swaymt -i eDP-1 -e HDMI-A-1 external
 swaymt -i eDP-1 -e HDMI-A-1 extended
-swaymt --internal eDP-1 --external HDMI-A-1 dmenu
+swaymt -i eDP-1 -e HDMI-A-1 dmenu
 ```
 
-Both output names are required for display modes. The default mode is `extended`.
-Use `swaymt --help` for options.
+- **Internal:** use only the internal display.
+- **External:** use only the external display.
+- **Extended:** enable both displays using the layout in your Sway configuration.
+  This is the default when no mode is supplied.
+- **Dmenu:** choose Internal, External, or Extended through Noctalia. Cancelling
+  leaves your displays unchanged.
 
-- `internal`: reload configuration, enable and power on internal, disable external.
-- `external`: reload configuration, enable and power on external, disable internal.
-- `extended`: reload configuration, enable and power on both. Positions, modes,
-  scaling, and other layout settings come from your Sway configuration.
+Both connectors must be connected, even if one is currently disabled. Display
+switching reloads your Sway configuration, including its `exec_always` commands.
+The picker connects directly to Noctalia; no launcher fallback is used.
 
-Both configured connectors must appear in a single `GET_OUTPUTS` reply, including
-currently disabled outputs. Validation happens before changing anything. Each
-command is acknowledged before proceeding; failures stop subsequent commands.
-Commands already applied are not rolled back. Reload has Sway's normal config
-side effects, including `exec_always` commands configured by you.
-
-### Noctalia picker
-
-`dmenu` connects directly to
-`$XDG_RUNTIME_DIR/noctalia-dmenu-$WAYLAND_DISPLAY.sock`. Both environment variables
-must be set. It sends the `Display:` prompt and the choices `Internal`, `External`,
-and `Extended`, then closes its write side and waits for a selection. Cancellation
-exits successfully without contacting Sway. There are no fallback launchers.
-
-### Optional BrightStay
+Long options are also supported:
 
 ```sh
-zig build -Dbrightstay=true -Doptimize=ReleaseFast
-zig build test -Dbrightstay=true
-swaymt brightstay
+swaymt --internal eDP-1 --external HDMI-A-1 dmenu
+swaymt --help
 ```
 
-This hardware-specific workaround is for the Lenovo L22i-40 firmware issue that
-resets user color settings after waking. It reapplies **color preset VCP `0x14`,
-value `11`**; it does not write a brightness VCP. A BrightStay-enabled build also
-adds `BrightStay` to the picker. The standalone command needs neither monitor
-arguments nor a Sway/Wayland session.
+For a Sway key binding:
 
-BrightStay reads EDID through Linux I²C and matches product code `26542` with a
-nonzero manufacturer field. It intentionally does not require a specific
-manufacturer, serial number, EDID header, or checksum. As in the original
-workaround, only bus numbers 0–255 are considered. Access to the matching
-`/dev/i2c-*` device and an available `i2c-dev` driver are required. Grant device
-access narrowly; do not run the whole desktop utility as root.
+```text
+bindsym $mod+p exec swaymt -i eDP-1 -e HDMI-A-1 dmenu
+```
 
-The cache is `/var/cache/brightstay/monitor.cache`. Provision
-`/var/cache/brightstay/` with write access for the invoking user if caching is
-wanted. The cached bus is revalidated by reading EDID and applying the preset;
-missing, malformed, stale, or failed cached entries fall back to scanning
-`/sys/class/i2c-dev`. Cache updates use exclusive temporary files in the same
-directory, file sync, atomic rename, and directory sync. Failed writes clean up
-the temporary file. Cache permissions are `0664`.
+### L22i-40 Setup
 
-The workaround remains best-effort: no usable monitor is a successful no-op.
-Cache failures warn without undoing a successful preset operation. BrightStay is
-optional and intended for this particular setup, not general monitor control.
+BrightStay reapplies the monitor's user color preset after waking to work around
+firmware that resets color settings and brightness. It is hardware-specific,
+not a general brightness controller.
 
-## Implementation and tests
+The `l22i-swaymt` package provides:
 
-- `src/main.zig`: CLI, environment, and orchestration.
-- `src/sway.zig`: native i3/Sway IPC and monitor commands.
-- `src/dmenu.zig`: Noctalia socket protocol.
-- `src/brightstay.zig`: optional I²C, EDID, DDC/CI, and cache.
+- The `i2c` group and group read/write permissions for I²C devices.
+- Automatic loading of `i2c-dev` on boot.
+- A group-writable cache directory at `/var/cache/brightstay/`.
+- Optional services for login and resume; neither is enabled automatically.
 
-Startup uses borrowed arguments/environment and bounded stack buffers, not heap
-allocation. Sway replies and JSON scratch space are each limited to 64 KiB;
-connector names to 255 bytes. Names are quoted for Sway, not a shell. Selectors,
-variables, control characters, and backslashes are rejected rather than risk
-ambiguous command parsing. Noctalia selections are limited to 64 bytes.
+To apply the workaround automatically:
 
-Tests use socket pairs, byte fixtures, injected hardware behavior, and temporary
-directories only. They never contact a desktop session, real I²C devices, system
-I²C directories, or the real BrightStay cache. Run tests with both feature settings
-as shown above. Physical monitor behavior requires separate manual verification.
+```sh
+systemctl --user enable brightstay.service
+sudo systemctl enable brightstay-resume.service
+```
