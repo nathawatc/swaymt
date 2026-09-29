@@ -1,0 +1,11 @@
+[Unit]
+Description=Apply Lenovo L22i-40 workaround
+After=graphical-session-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sleep 3
+ExecStart=/usr/bin/swaymt brightstay
+
+[Install]
+WantedBy=graphical-session.target

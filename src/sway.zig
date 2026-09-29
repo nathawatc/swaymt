@@ -92,6 +92,12 @@ fn frameHeader(kind: u32, len: u32) [14]u8 {
 fn sendFrame(fd: i32, kind: u32, payload: []const u8) !void {
     if (payload.len > max_payload) return error.PayloadTooLarge;
     const header = frameHeader(kind, @intCast(payload.len));
+    if (payload.len <= max_command) {
+        var frame: [14 + max_command]u8 = undefined;
+        @memcpy(frame[0..14], &header);
+        @memcpy(frame[14..][0..payload.len], payload);
+        return sendAll(fd, frame[0 .. 14 + payload.len]);
+    }
     try sendAll(fd, &header);
     try sendAll(fd, payload);
 }
@@ -237,6 +243,24 @@ test "header is native endian and payload excludes terminator" {
     try readExact(pair[1], &wire);
     try std.testing.expectEqualSlices(u8, &frameHeader(0, 6), wire[0..14]);
     try std.testing.expectEqualStrings("reload", wire[14..]);
+}
+
+test "send frame preserves wire bytes across coalescing boundary" {
+    var payload: [max_command + 1]u8 = undefined;
+    for (&payload, 0..) |*byte, index| byte.* = @truncate(index);
+    for ([_]usize{ 0, max_command - 1, max_command, max_command + 1 }) |len| {
+        const pair = try socketPair();
+        defer closePair(pair);
+        try sendFrame(pair[0], run_command, payload[0..len]);
+        _ = try syscall(linux.shutdown(pair[0], linux.SHUT.WR));
+        var wire: [14 + payload.len]u8 = undefined;
+        try readExact(pair[1], wire[0 .. 14 + len]);
+        try std.testing.expectEqualSlices(u8, &frameHeader(run_command, @intCast(len)), wire[0..14]);
+        try std.testing.expectEqualSlices(u8, payload[0..len], wire[14..][0..len]);
+        var extra: [1]u8 = undefined;
+        try std.testing.expectError(error.TruncatedFrame, readExact(pair[1], &extra));
+    }
+    try std.testing.expectError(error.PayloadTooLarge, sendFrame(-1, run_command, &(@as([max_payload + 1]u8, @splat(0)))));
 }
 
 test "truncated headers and payloads fail at every boundary" {

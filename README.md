@@ -60,6 +60,10 @@ BrightStay reapplies the monitor's user color preset after waking to work around
 firmware that resets color settings and brightness. It is hardware-specific,
 not a general brightness controller.
 
+Run `swaymt brightstay` to apply the workaround manually. It is best-effort:
+no usable monitor or a failed hardware operation exits successfully (code `0`).
+Cache failures may warn but do not turn the command into a failure.
+
 The `l22i-swaymt` package provides:
 
 - The `i2c` group and group read/write permissions for I²C devices.

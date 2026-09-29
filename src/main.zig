@@ -99,7 +99,7 @@ fn run(init: std.process.Init.Minimal) !void {
         mode = (try selection(chosen)) orelse return;
     }
     if (options.brightstay and mode == .brightstay) {
-        try brightstay.run();
+        brightstay.run();
         return;
     }
     const socket = init.environ.getPosix("SWAYSOCK") orelse return error.MissingSwaySock;

@@ -1,0 +1,14 @@
+[Unit]
+Description=Apply Lenovo L22i-40 workaround after resume
+Before=sleep.target
+StopWhenUnneeded=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/true
+ExecStop=/usr/bin/sleep 7
+ExecStop=/usr/bin/swaymt brightstay
+
+[Install]
+WantedBy=sleep.target

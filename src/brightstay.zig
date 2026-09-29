@@ -9,10 +9,20 @@ const cache_name = "monitor.cache";
 /// Best-effort, like the Rust implementation: absence of a usable monitor is not
 /// an error. Cache failures never undo a successful hardware operation.
 /// Linux only; no libc, allocator, subprocess, or Io instance is required.
-pub fn run() !void {
+pub fn run() void {
     var backend: Backend = .{};
     defer backend.deinit();
     reapplyColorPreset(&backend);
+}
+
+fn ignoreSigpipe() bool {
+    // Minimal startup leaves SIGPIPE enabled; cache warnings must not terminate us.
+    const action: linux.Sigaction = .{
+        .handler = .{ .handler = linux.SIG.IGN },
+        .mask = std.posix.sigemptyset(),
+        .flags = 0,
+    };
+    return linux.errno(linux.sigaction(.PIPE, &action, null)) == .SUCCESS;
 }
 
 fn decimal(comptime T: type, text: []const u8) ?T {
@@ -270,6 +280,8 @@ const Backend = struct {
     }
 
     fn cacheWarning(_: *Backend) void {
+        // Keep signal setup off the successful cached-bus path.
+        if (!ignoreSigpipe()) return;
         writeAll(2, "brightstay: cache unavailable; hardware result preserved\n") catch {};
     }
 };
@@ -313,6 +325,7 @@ const Fake = struct {
     save_failure: bool = false,
     scan_recovers: bool = true,
     scan_failure: bool = false,
+    no_devices: bool = false,
     reads: usize = 0,
     sets: usize = 0,
     scans: usize = 0,
@@ -338,7 +351,7 @@ const Fake = struct {
     fn next(self: *Fake) !?u8 {
         self.scans += 1;
         if (self.scan_failure) return error.ScanFailed;
-        if (self.scans > 1) return null;
+        if (self.no_devices or self.scans > 1) return null;
         if (self.scan_recovers) {
             self.edid = targetEdid();
             self.read_failure = false;
@@ -387,6 +400,16 @@ test "cache failure warns after hardware success" {
     reapplyColorPreset(&fake);
     try std.testing.expectEqual(@as(usize, 1), fake.sets);
     try std.testing.expectEqual(@as(usize, 1), fake.warnings);
+}
+
+test "no monitor is a successful no-op" {
+    var fake: Fake = .{ .cache = null, .no_devices = true };
+    reapplyColorPreset(&fake);
+    try std.testing.expectEqual(@as(usize, 1), fake.scans);
+    try std.testing.expectEqual(@as(usize, 0), fake.reads);
+    try std.testing.expectEqual(@as(usize, 0), fake.sets);
+    try std.testing.expectEqual(@as(usize, 0), fake.saves);
+    try std.testing.expectEqual(@as(usize, 0), fake.warnings);
 }
 
 test "unsuccessful scan never writes cache" {
@@ -447,6 +470,39 @@ test "failed rename cleans temporary file and preserves existing cache" {
     try std.testing.expectError(error.LinuxIoFailure, writeCacheAt(fd, 9, "blocked"));
     try std.testing.expectEqual(@as(?u8, 7), try readCacheAt(fd));
     try expectNoTemps(tmp.dir);
+}
+
+test "cache warning survives closed stderr with default SIGPIPE disposition" {
+    var pipe: [2]i32 = undefined;
+    _ = try checked(linux.pipe2(&pipe, .{ .CLOEXEC = true }));
+    _ = linux.close(pipe[0]);
+    defer _ = linux.close(pipe[1]);
+    const pid = try checked(linux.fork());
+    if (pid == 0) {
+        // Only raw syscalls after fork: never touch the test runner's locks or backend.
+        const action: linux.Sigaction = .{
+            .handler = .{ .handler = linux.SIG.DFL },
+            .mask = std.posix.sigemptyset(),
+            .flags = 0,
+        };
+        if (linux.errno(linux.sigaction(.PIPE, &action, null)) != .SUCCESS) linux.exit(1);
+        const mask = std.posix.sigemptyset();
+        if (linux.errno(linux.sigprocmask(linux.SIG.SETMASK, &mask, null)) != .SUCCESS) linux.exit(2);
+        if (linux.errno(linux.dup2(pipe[1], 2)) != .SUCCESS) linux.exit(3);
+        var backend: Backend = .{};
+        backend.cacheWarning();
+        linux.exit(0);
+    }
+    var status: u32 = undefined;
+    while (true) {
+        _ = checked(linux.waitpid(@intCast(pid), &status, 0)) catch |err| {
+            if (err == error.Interrupted) continue;
+            return err;
+        };
+        break;
+    }
+    try std.testing.expect(linux.W.IFEXITED(status));
+    try std.testing.expectEqual(@as(u8, 0), linux.W.EXITSTATUS(status));
 }
 
 test "production declarations compile without executing hardware paths" {

@@ -100,7 +100,11 @@ directory, set mode `0664`, fsync it, atomically rename it, then fsync the direc
 Clean up temporary files on failure. Never truncate the live cache in place.
 A directory-sync failure after rename does not roll back the valid replacement.
 Cache failures warn without undoing successful hardware work. No usable monitor
-is a successful no-op. Physical application of the preset is not read back.
+is a successful no-op. The BrightStay entry point returns `void`; hardware and
+cache failures must not turn normal completion into a nonzero exit. Cache warnings
+must also survive a closed stderr pipe without SIGPIPE termination. Keep signal
+setup on the warning path, not the successful cached-bus path. Physical application
+of the preset is not read back.
 
 ## Arch Packaging and System Assets
 
