@@ -1,0 +1,19 @@
+post_install() {
+	echo "note: ensure user is in i2c group. if not, run:"
+	echo "  sudo usermod -aG i2c <username>"
+	echo "note: log out and back in for group changes to take effect."
+	echo "note: enable Brightstay units manually:"
+	echo "  systemctl --user enable brightstay.service"
+	echo "  sudo systemctl enable brightstay-resume.service"
+}
+
+post_upgrade() {
+	echo "note: enable Brightstay units manually:"
+	echo "  systemctl --user enable brightstay.service"
+	echo "  sudo systemctl enable brightstay-resume.service"
+}
+
+post_remove() {
+	echo "note: user may still be member of i2c group. if no longer needed, run:"
+	echo "  sudo gpasswd -d <username> i2c"
+}

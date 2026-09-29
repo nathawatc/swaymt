@@ -1,0 +1,23 @@
+pkgbase = swaymt
+	pkgdesc = Sway monitor toggle utility
+	pkgver = 1.0.0
+	pkgrel = 1
+	url = https://codeberg.org/nathawat/swaymt
+	arch = x86_64
+	license = GPL-3.0-or-later
+	makedepends = zig>=0.16.0
+	makedepends = zig<0.17
+	depends = sway
+	optdepends = noctalia-shell: optional monitor picker
+	source = swaymt-1.0.0.tar.gz::https://codeberg.org/nathawat/swaymt/archive/refs/tags/v1.0.0.tar.gz
+	b2sums = 9f1b9c160e2e0525d2f2e4f0cb2d751c83e2480c26d6b547eb186bba2e6e962adfe67e8f84bcd363830651399e339b4d359002387dce50129e0432acdc158be2
+
+pkgname = swaymt
+
+pkgname = l22i-swaymt
+	pkgdesc = Sway monitor toggle utility with Lenovo L22i-40 workaround
+	install = l22i-swaymt.install
+	depends = sway
+	depends = systemd
+	provides = swaymt=1.0.0
+	conflicts = swaymt

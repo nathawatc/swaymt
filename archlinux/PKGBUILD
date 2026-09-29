@@ -1,0 +1,54 @@
+# Maintainer: nathawat <nathawat[at]noreply[dot]codeberg[dot]org>
+
+pkgbase=swaymt
+pkgname=(swaymt l22i-swaymt)
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Sway monitor toggle utility"
+arch=('x86_64')
+url="https://codeberg.org/nathawat/swaymt"
+license=('GPL-3.0-or-later')
+depends=('sway')
+makedepends=('zig>=0.16.0' 'zig<0.17')
+optdepends=('noctalia-shell: optional monitor picker')
+
+_tag=v${pkgver}
+
+source=("${pkgbase}-${pkgver}.tar.gz::${url}/archive/refs/tags/${_tag}.tar.gz")
+b2sums=('9f1b9c160e2e0525d2f2e4f0cb2d751c83e2480c26d6b547eb186bba2e6e962adfe67e8f84bcd363830651399e339b4d359002387dce50129e0432acdc158be2')
+
+build() {
+	cd "$srcdir/$pkgbase"
+	zig build -Doptimize=ReleaseFast -Dbrightstay=false --prefix "$srcdir/plain"
+	zig build -Doptimize=ReleaseFast -Dbrightstay=true --prefix "$srcdir/l22i"
+}
+
+check() {
+	cd "$srcdir/$pkgbase"
+	zig build test -Doptimize=ReleaseFast -Dbrightstay=false
+	zig build test -Doptimize=ReleaseFast -Dbrightstay=true
+}
+
+package_swaymt() {
+	cd "$srcdir/$pkgbase"
+	install -Dm755 "$srcdir/plain/bin/swaymt" "$pkgdir/usr/bin/swaymt"
+	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+
+package_l22i-swaymt() {
+	pkgdesc="Sway monitor toggle utility with Lenovo L22i-40 workaround"
+	depends+=('systemd')
+	provides=("swaymt=$pkgver")
+	conflicts=('swaymt')
+	install+='l22i-swaymt.install'
+
+	cd "$srcdir/$pkgbase"
+	install -Dm755 "$srcdir/l22i/bin/swaymt" "$pkgdir/usr/bin/swaymt"
+	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+	install -Dm644 assets/modules-load.d/swaymt.conf "$pkgdir/usr/lib/modules-load.d/swaymt.conf"
+	install -Dm644 assets/sysusers.d/swaymt.sysusers "$pkgdir/usr/lib/sysusers.d/swaymt.conf"
+	install -Dm644 assets/tmpfiles.d/swaymt.conf "$pkgdir/usr/lib/tmpfiles.d/swaymt.conf"
+	install -Dm644 assets/udev/rules.d/45-swaymt.rules "$pkgdir/usr/lib/udev/rules.d/45-swaymt.rules"
+	install -Dm644 assets/systemd/brightstay.service "$pkgdir/usr/lib/systemd/user/brightstay.service"
+	install -Dm644 assets/systemd/brightstay-resume.service "$pkgdir/usr/lib/systemd/system/brightstay-resume.service"
+}
