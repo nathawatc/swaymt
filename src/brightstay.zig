@@ -19,7 +19,7 @@ fn ignoreSigpipe() bool {
     // Minimal startup leaves SIGPIPE enabled; cache warnings must not terminate us.
     const action: linux.Sigaction = .{
         .handler = .{ .handler = linux.SIG.IGN },
-        .mask = std.posix.sigemptyset(),
+        .mask = linux.sigemptyset(),
         .flags = 0,
     };
     return linux.errno(linux.sigaction(.PIPE, &action, null)) == .SUCCESS;
@@ -482,11 +482,11 @@ test "cache warning survives closed stderr with default SIGPIPE disposition" {
         // Only raw syscalls after fork: never touch the test runner's locks or backend.
         const action: linux.Sigaction = .{
             .handler = .{ .handler = linux.SIG.DFL },
-            .mask = std.posix.sigemptyset(),
+            .mask = linux.sigemptyset(),
             .flags = 0,
         };
         if (linux.errno(linux.sigaction(.PIPE, &action, null)) != .SUCCESS) linux.exit(1);
-        const mask = std.posix.sigemptyset();
+        const mask = linux.sigemptyset();
         if (linux.errno(linux.sigprocmask(linux.SIG.SETMASK, &mask, null)) != .SUCCESS) linux.exit(2);
         if (linux.errno(linux.dup2(pipe[1], 2)) != .SUCCESS) linux.exit(3);
         var backend: Backend = .{};
