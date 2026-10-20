@@ -2,7 +2,7 @@
 
 ## Scope and Architecture
 
-`swaymt` is a Linux-only, native Zig 0.16 application. Keep the implementation
+`swaymt` is a Linux-only, native Zig 0.17 application. Keep the implementation
 small, fast, and dependency-free. README.md is for installation and everyday
 usage; keep protocol details, implementation constraints, and test guidance here.
 

@@ -164,7 +164,7 @@ fn writeCacheAt(dir: i32, bus: u8, destination: [*:0]const u8) !void {
         offset += n;
     }
     var name_buffer: [80]u8 = undefined;
-    const name = try std.fmt.bufPrintZ(&name_buffer, ".monitor.cache.{x}", .{std.fmt.bytesToHex(random, .lower)});
+    const name = try std.mem.printSentinel(&name_buffer, ".monitor.cache.{x}", .{std.fmt.bytesToHex(random, .lower)}, 0);
     const fd = try openAt(dir, name, .{ .ACCMODE = .WRONLY, .CREAT = true, .EXCL = true, .CLOEXEC = true, .NOFOLLOW = true }, 0o600);
     defer _ = linux.close(fd);
     // After rename, this name no longer belongs to our temporary file.
@@ -174,7 +174,7 @@ fn writeCacheAt(dir: i32, bus: u8, destination: [*:0]const u8) !void {
     };
     _ = try checked(linux.fchmod(fd, 0o664));
     var text: [32]u8 = undefined;
-    try writeAll(fd, try std.fmt.bufPrint(&text, "{d}:{d}\n", .{ bus, target_product }));
+    try writeAll(fd, try std.mem.print(&text, "{d}:{d}\n", .{ bus, target_product }));
     try sync(fd);
     _ = try checked(linux.renameat(dir, name, dir, destination));
     renamed = true;
@@ -240,7 +240,7 @@ const Backend = struct {
 
     fn apply(_: *Backend, bus: u8) !bool {
         var path_buffer: [32]u8 = undefined;
-        const path = try std.fmt.bufPrintZ(&path_buffer, "/dev/i2c-{d}", .{bus});
+        const path = try std.mem.printSentinel(&path_buffer, "/dev/i2c-{d}", .{bus}, 0);
         const fd = try openAt(linux.AT.FDCWD, path, .{ .ACCMODE = .RDWR, .CLOEXEC = true }, 0);
         defer _ = linux.close(fd);
         return applyDevice(Device{ .fd = fd });
@@ -287,7 +287,7 @@ const Backend = struct {
 };
 
 fn targetEdid() [128]u8 {
-    var edid = [_]u8{0} ** 128;
+    var edid: [128]u8 = @splat(0);
     edid[9] = 1;
     std.mem.writeInt(u16, edid[10..12], target_product, .little);
     return edid;
@@ -383,7 +383,7 @@ test "missing cache, stale EDID, EDID failure and VCP failure fall back" {
         var fake: Fake = .{};
         switch (case) {
             0 => fake.cache = null,
-            1 => fake.edid = [_]u8{0} ** 128,
+            1 => fake.edid = @splat(0),
             2 => fake.read_failure = true,
             3 => fake.set_failure = true,
             else => unreachable,
@@ -418,7 +418,7 @@ test "unsuccessful scan never writes cache" {
         switch (case) {
             0 => fake.scan_failure = true,
             1 => fake.read_failure = true,
-            2 => fake.edid = [_]u8{0} ** 128,
+            2 => fake.edid = @splat(0),
             3 => fake.set_failure = true,
             else => unreachable,
         }
@@ -493,7 +493,7 @@ test "cache warning survives closed stderr with default SIGPIPE disposition" {
         backend.cacheWarning();
         linux.exit(0);
     }
-    var status: u32 = undefined;
+    var status: i32 = undefined;
     while (true) {
         _ = checked(linux.waitpid(@intCast(pid), &status, 0)) catch |err| {
             if (err == error.Interrupted) continue;
@@ -501,8 +501,9 @@ test "cache warning survives closed stderr with default SIGPIPE disposition" {
         };
         break;
     }
-    try std.testing.expect(linux.W.IFEXITED(status));
-    try std.testing.expectEqual(@as(u8, 0), linux.W.EXITSTATUS(status));
+    const status_u32: u32 = @bitCast(status);
+    try std.testing.expect(linux.W.IFEXITED(status_u32));
+    try std.testing.expectEqual(@as(u8, 0), linux.W.EXITSTATUS(status_u32));
 }
 
 test "production declarations compile without executing hardware paths" {

@@ -10,16 +10,16 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
-        .strip = optimize != .Debug,
+        .strip = optimize != .debug,
     });
     module.addOptions("options", options);
     const exe = b.addExecutable(.{ .name = "swaymt", .root_module = module });
-    if (optimize != .Debug) exe.lto = .full;
+    if (optimize != .debug) exe.lto = .full;
     b.installArtifact(exe);
     const run = b.addRunArtifact(exe);
-    if (b.args) |args| run.addArgs(args);
+    run.addPassthruArgs();
     b.step("run", "Run swaymt").dependOn(&run.step);
     const tests = b.addTest(.{ .root_module = module });
-    if (optimize != .Debug) tests.lto = .full;
+    if (optimize != .debug) tests.lto = .full;
     b.step("test", "Run isolated tests").dependOn(&b.addRunArtifact(tests).step);
 }

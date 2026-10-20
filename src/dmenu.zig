@@ -156,5 +156,5 @@ test "reject invalid socket paths" {
     var response: [8]u8 = undefined;
     try std.testing.expectError(error.InvalidSocketPath, choose("", "", &response));
     try std.testing.expectError(error.InvalidSocketPath, choose("a\x00b", "", &response));
-    try std.testing.expectError(error.SocketPathTooLong, choose("a" ** 108, "", &response));
+    try std.testing.expectError(error.SocketPathTooLong, choose(&@as([108]u8, @splat('a')), "", &response));
 }

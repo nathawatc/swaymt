@@ -1,7 +1,7 @@
 //! Linux-only Sway IPC. No environment access, libc, subprocesses, or heap allocator.
 const std = @import("std");
 const linux = std.os.linux;
-const endian = @import("builtin").cpu.arch.endian();
+const endian = @import("builtin").target.cpu.arch.endian();
 
 pub const Mode = enum { internal, external, extended };
 
@@ -190,7 +190,7 @@ fn quoteName(buffer: []u8, name: []const u8) ![]const u8 {
 fn outputCommand(buffer: []u8, name: []const u8, action: []const u8) ![]const u8 {
     var quoted_buffer: [max_name * 5 + 2]u8 = undefined;
     const quoted = try quoteName(&quoted_buffer, name);
-    return std.fmt.bufPrint(buffer, "output {s} {s}", .{ quoted, action });
+    return std.mem.print(buffer, "output {s} {s}", .{ quoted, action });
 }
 
 fn command(fd: i32, text: []const u8, reply: []u8) !void {
@@ -260,7 +260,7 @@ test "send frame preserves wire bytes across coalescing boundary" {
         var extra: [1]u8 = undefined;
         try std.testing.expectError(error.TruncatedFrame, readExact(pair[1], &extra));
     }
-    try std.testing.expectError(error.PayloadTooLarge, sendFrame(-1, run_command, &(@as([max_payload + 1]u8, @splat(0)))));
+    try std.testing.expectError(error.PayloadTooLarge, sendFrame(-1, run_command, &@as([max_payload + 1]u8, @splat(0))));
 }
 
 test "truncated headers and payloads fail at every boundary" {
@@ -368,7 +368,7 @@ test "Sway quoting protects separators and preserves ordinary quotes" {
     for ([_][]const u8{ "", "*", "DP-*", "?", "-", "--", "$output", "a\n", "a\r", "a\x00b", "a\x1b", "a\\" }) |name| {
         try std.testing.expectError(error.InvalidOutputName, quoteName(&buffer, name));
     }
-    try std.testing.expectError(error.OutputNameTooLong, quoteName(&buffer, &(@as([max_name + 1]u8, @splat('a')))));
+    try std.testing.expectError(error.OutputNameTooLong, quoteName(&buffer, &@as([max_name + 1]u8, @splat('a'))));
     try std.testing.expectError(error.SameOutput, validateNames("DP-1", "dp-1"));
     var tiny: [1]u8 = undefined;
     try std.testing.expectError(error.WriteFailed, quoteName(&tiny, "DP-1"));
@@ -515,5 +515,5 @@ test "public API validates names and socket paths before connecting" {
     try std.testing.expectError(error.SameOutput, apply("unused", "DP-1", "DP-1", .extended));
     try std.testing.expectError(error.InvalidSocketPath, apply("", "eDP-1", "DP-1", .extended));
     try std.testing.expectError(error.InvalidSocketPath, apply("a\x00b", "eDP-1", "DP-1", .extended));
-    try std.testing.expectError(error.SocketPathTooLong, apply(&(@as([108]u8, @splat('x'))), "eDP-1", "DP-1", .extended));
+    try std.testing.expectError(error.SocketPathTooLong, apply(&@as([108]u8, @splat('x')), "eDP-1", "DP-1", .extended));
 }

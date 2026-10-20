@@ -73,7 +73,7 @@ fn selection(text: []const u8) !?Mode {
 
 fn menuPath(buffer: []u8, runtime: []const u8, display: []const u8) ![]const u8 {
     if (runtime.len == 0 or display.len == 0) return error.EmptyDmenuEnvironment;
-    return std.fmt.bufPrint(buffer, "{s}/noctalia-dmenu-{s}.sock", .{ runtime, display }) catch return error.SocketPathTooLong;
+    return std.mem.print(buffer, "{s}/noctalia-dmenu-{s}.sock", .{ runtime, display }) catch return error.SocketPathTooLong;
 }
 
 fn run(init: std.process.Init.Minimal) !void {

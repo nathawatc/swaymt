@@ -7,7 +7,7 @@ mode from a Noctalia picker.
 
 - Linux and Sway.
 - Noctalia for the optional display picker.
-- Zig 0.16.x to build from source.
+- Zig 0.17.x to build from source.
 
 ## Build from Source
 
