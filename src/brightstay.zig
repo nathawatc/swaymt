@@ -164,7 +164,7 @@ fn writeCacheAt(dir: i32, bus: u8, destination: [*:0]const u8) !void {
         offset += n;
     }
     var name_buffer: [80]u8 = undefined;
-    const name = try std.mem.printSentinel(&name_buffer, ".monitor.cache.{x}", .{std.fmt.bytesToHex(random, .lower)}, 0);
+    const name = try std.mem.printSentinel(&name_buffer, ".monitor.cache.{x}", .{random}, 0);
     const fd = try openAt(dir, name, .{ .ACCMODE = .WRONLY, .CREAT = true, .EXCL = true, .CLOEXEC = true, .NOFOLLOW = true }, 0o600);
     defer _ = linux.close(fd);
     // After rename, this name no longer belongs to our temporary file.
